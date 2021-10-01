@@ -8,6 +8,7 @@ const typeDefs = (0, apollo_server_1.gql) `
     id: Int!
     description: String!
     completed: Boolean!
+    user: String!
   }
 
   type Query {
@@ -23,38 +24,53 @@ const typeDefs = (0, apollo_server_1.gql) `
 `;
 const resolvers = {
     Query: {
-        allTasks: () => tasks,
-        Task: (_parent, { id }) => {
-            const task = tasks.find((t) => t.id === id);
-            return task;
+        allTasks: (_parent, _args, context) => {
+            return tasks.filter((task) => task.user === context.user);
+        },
+        Task: (_parent, { id }, context) => {
+            const task = tasks
+                .filter((task) => task.user === context.user)
+                .find((t) => t.id === id);
+            return task ?? null;
         },
     },
     Mutation: {
-        createTask: (_parent, { description }) => {
+        createTask: (_parent, { description }, context) => {
             id += 1;
-            const task = { id, description, completed: false };
+            const task = { id, description, user: context.user, completed: false };
             tasks.push(task);
             return task;
         },
-        toggleTaskCompletion: (_parent, { id }) => {
-            const task = tasks.find((t) => t.id === id);
+        toggleTaskCompletion: (_parent, { id }, context) => {
+            const task = tasks
+                .filter((task) => task.user === context.user)
+                .find((t) => t.id === id);
             if (task) {
                 task.completed = !task.completed;
             }
-            return task;
+            return task ?? null;
         },
-        deleteTask: (_parent, { id }) => {
+        deleteTask: (_parent, { id }, context) => {
             const taskIndex = tasks.findIndex((t) => t.id === id);
             if (taskIndex === -1) {
-                return;
+                return null;
             }
             const task = tasks[taskIndex];
+            if (task.user !== context.user) {
+                return null;
+            }
             tasks.splice(taskIndex, 1);
             return task;
         },
     },
 };
-const server = new apollo_server_1.ApolloServer({ typeDefs, resolvers });
+const server = new apollo_server_1.ApolloServer({
+    typeDefs,
+    resolvers,
+    context: ({ req }) => {
+        return { user: req.headers.authorization };
+    },
+});
 // The `listen` method launches a web server.
 server.listen().then(({ url }) => {
     console.log(`🚀  Server ready at ${url}`);

@@ -8,6 +8,10 @@ import {
   MutationDeleteTaskArgs,
 } from "./generated/graphql";
 
+type AuthContext = {
+  user: string;
+};
+
 let id = 0;
 const tasks: Task[] = [];
 
@@ -16,6 +20,7 @@ const typeDefs = gql`
     id: Int!
     description: String!
     completed: Boolean!
+    user: String!
   }
 
   type Query {
@@ -32,30 +37,43 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    allTasks: (): Task[] => tasks,
+    allTasks: (
+      _parent: Record<string, never>,
+      _args: Record<string, never>,
+      context: AuthContext
+    ): Task[] => {
+      return tasks.filter((task) => task.user === context.user);
+    },
     Task: (
       _parent: Record<string, never>,
-      { id }: QueryTaskArgs
+      { id }: QueryTaskArgs,
+      context: AuthContext
     ): Maybe<Task> => {
-      const task = tasks.find((t) => t.id === id);
+      const task = tasks
+        .filter((task) => task.user === context.user)
+        .find((t) => t.id === id);
       return task ?? null;
     },
   },
   Mutation: {
     createTask: (
       _parent: Record<string, never>,
-      { description }: MutationCreateTaskArgs
+      { description }: MutationCreateTaskArgs,
+      context: AuthContext
     ): Task => {
       id += 1;
-      const task = { id, description, completed: false };
+      const task = { id, description, user: context.user, completed: false };
       tasks.push(task);
       return task;
     },
     toggleTaskCompletion: (
       _parent: Record<string, never>,
-      { id }: MutationToggleTaskCompletionArgs
+      { id }: MutationToggleTaskCompletionArgs,
+      context: AuthContext
     ): Maybe<Task> => {
-      const task = tasks.find((t) => t.id === id);
+      const task = tasks
+        .filter((task) => task.user === context.user)
+        .find((t) => t.id === id);
       if (task) {
         task.completed = !task.completed;
       }
@@ -63,20 +81,30 @@ const resolvers = {
     },
     deleteTask: (
       _parent: Record<string, never>,
-      { id }: MutationDeleteTaskArgs
+      { id }: MutationDeleteTaskArgs,
+      context: AuthContext
     ): Maybe<Task> => {
       const taskIndex = tasks.findIndex((t) => t.id === id);
       if (taskIndex === -1) {
         return null;
       }
       const task = tasks[taskIndex];
+      if (task.user !== context.user) {
+        return null;
+      }
       tasks.splice(taskIndex, 1);
       return task;
     },
   },
 };
 
-const server = new ApolloServer({ typeDefs, resolvers });
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  context: ({ req }) => {
+    return { user: req.headers.authorization };
+  },
+});
 
 // The `listen` method launches a web server.
 server.listen().then(({ url }) => {
