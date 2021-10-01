@@ -51,6 +51,7 @@ export type Task = {
   completed: Scalars['Boolean'];
   description: Scalars['String'];
   id: Scalars['Int'];
+  user: Scalars['String'];
 };
 
 
@@ -155,6 +156,7 @@ export type TaskResolvers<ContextType = any, ParentType extends ResolversParentT
   completed?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  user?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
