@@ -1,18 +1,12 @@
 import { ApolloServer, gql } from "apollo-server";
-
-type Task = {
-  id: number;
-  description: string;
-  completed: boolean;
-};
-
-type CreateTaskInput = {
-  description: string;
-};
-
-type FindTaskInput = {
-  id: number;
-};
+import {
+  Maybe,
+  Task,
+  QueryTaskArgs,
+  MutationCreateTaskArgs,
+  MutationToggleTaskCompletionArgs,
+  MutationDeleteTaskArgs,
+} from "./generated/graphql";
 
 let id = 0;
 const tasks: Task[] = [];
@@ -38,17 +32,20 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    allTasks: () => tasks,
-    Task: (_parent: Record<string, never>, { id }: FindTaskInput) => {
+    allTasks: (): Task[] => tasks,
+    Task: (
+      _parent: Record<string, never>,
+      { id }: QueryTaskArgs
+    ): Maybe<Task> => {
       const task = tasks.find((t) => t.id === id);
-      return task;
+      return task ?? null;
     },
   },
   Mutation: {
     createTask: (
       _parent: Record<string, never>,
-      { description }: CreateTaskInput
-    ) => {
+      { description }: MutationCreateTaskArgs
+    ): Task => {
       id += 1;
       const task = { id, description, completed: false };
       tasks.push(task);
@@ -56,18 +53,21 @@ const resolvers = {
     },
     toggleTaskCompletion: (
       _parent: Record<string, never>,
-      { id }: FindTaskInput
-    ) => {
+      { id }: MutationToggleTaskCompletionArgs
+    ): Maybe<Task> => {
       const task = tasks.find((t) => t.id === id);
       if (task) {
         task.completed = !task.completed;
       }
-      return task;
+      return task ?? null;
     },
-    deleteTask: (_parent: Record<string, never>, { id }: FindTaskInput) => {
+    deleteTask: (
+      _parent: Record<string, never>,
+      { id }: MutationDeleteTaskArgs
+    ): Maybe<Task> => {
       const taskIndex = tasks.findIndex((t) => t.id === id);
       if (taskIndex === -1) {
-        return;
+        return null;
       }
       const task = tasks[taskIndex];
       tasks.splice(taskIndex, 1);
